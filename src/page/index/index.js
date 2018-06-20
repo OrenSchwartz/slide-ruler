@@ -2,6 +2,7 @@
  * Created by simba on 09/11/2017.
  */
 import React from 'react';
+import ReactDOM from 'react-dom';
 import s from './index.scss';
 import SlideRuler from '../../../components/index.js';
 
