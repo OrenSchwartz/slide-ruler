@@ -34,14 +34,21 @@ class IndexPage extends React.Component {
                     boxColor='black'
                     spaceBetweenLines={20}
                     digitsToDecimal={6}
-                    textFormat='{0}:00'
+                    textFormat={(value) => {
+                      let ampm = value / 12 < 1 ? 'AM' : 'PM';
+                      let ampmValue = value % 12;
+                      if (ampm == 'PM' && value == 12) { ampmValue = 12 ;}
+                      if (ampm == 'PM' && value == 24) { ampm = 'AM' ;}
+                      return `${ampmValue}:00 ${ampm}`
+                    }}
                     markerColor='#edcd1f'
                     markerStyle={{
                       width: 3,
                       borderRadius: 100,
                     }}
                     fontSize={18}
-                    precision={0.1}/>
+                    alignment='bottom'
+                    />
       </div>
     );
   }

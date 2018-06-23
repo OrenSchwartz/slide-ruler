@@ -22,7 +22,6 @@ class SlideRuler extends React.Component {
       colorDecimal: '#909090',
       colorDigit: '#b4b4b4',
       spaceBetweenLines: 10,
-      precision: 1,
       fontSize: 20,
       fontColor: '#666666',
       maxValue: 230,
@@ -37,13 +36,14 @@ class SlideRuler extends React.Component {
       markerLineStyle: {},
       markerColor: '#59AFFF',
       digitsToDecimal: 10,
+      alignment: 'top',
     };
 
     this.initCanvas = this.initCanvas.bind(this);
-    this.initDates = this.initDates.bind(this);
+    this.initState = this.initState.bind(this);
     this.drawRuler = this.drawRuler.bind(this);
     this.handleScroll = this.handleScroll.bind(this);
-    this.getCurrentValue = this.getCurrentValue.bind(this);
+    this.getCurrentValueFromScroll = this.getCurrentValueFromScroll.bind(this);
   }
 
   componentDidMount(){
@@ -57,25 +57,26 @@ class SlideRuler extends React.Component {
       this.setState({
         currentValue: nextProps.currentValue
       },()=>{
-        this.handleCurrentValue();
+        this.setPositionStart();
       })
     }
   }
 
   initCanvas(data){
     new Promise((resolve, reject)=>{
-      resolve(this.initDates(data))
+      resolve(this.initState(data))
     }).then(()=>{
-      this.handleCurrentValue();
+      this.setPositionStart();
     })
   }
 
-  initDates(data){
+  initState(data){
     let maxValue = data.maxValue || this.state.maxValue;
     let minValue = data.minValue === undefined ?  this.state.minValue : data.minValue; // handle zero value bug
     let currentValue = data.currentValue || this.state.currentValue;
-    let spaceBetweenLines = data.spaceBetweenLines || this.state.spaceBetweenLines;
-    let precision = data.precision || this.state.precision;
+    let spaceBetweenLines = data.spaceBetweenLines || this.state.spaceBetweenLines
+    let digitsToDecimal =  data.digitsToDecimal || this.state.digitsToDecimal;
+    let precision = (maxValue - minValue) / (maxValue * digitsToDecimal);
     let containerWidth = data.containerWidth || ReactDOM.findDOMNode(this).offsetWidth;
     let canvasWidth = (maxValue/precision * spaceBetweenLines + containerWidth - minValue/precision * spaceBetweenLines) || this.state.canvasWidth;
     let scrollLeft = (currentValue - minValue) * spaceBetweenLines || this.state.scrollLeft;
@@ -90,7 +91,7 @@ class SlideRuler extends React.Component {
       colorDecimal: data.colorDecimal || this.state.colorDecimal,
       colorDigit: data.colorDigit || this.state.colorDigit,
       spaceBetweenLines: data.spaceBetweenLines || this.state.spaceBetweenLines,
-      precision: data.precision || this.state.precision,
+      precision,
       fontSize: data.fontSize || this.state.fontSize,
       fontColor: data.fontSize || this.state.fontColor,
       maxValue: data.maxValue || this.state.maxValue,
@@ -104,7 +105,8 @@ class SlideRuler extends React.Component {
       markerColor: data.markerColor || this.state.markerColor,
       markerBaseStyle: {borderBottomColor: data.markerColor || this.state.markerColor, ...data.markerStyle, ...data.markerBaseStyle} || this.state.markerBaseStyle,
       markerLineStyle: {backgroundColor: data.markerColor || this.state.markerColor, ...data.markerStyle, ...data.markerLineStyle} || this.state.markerLineStyle,
-      digitsToDecimal: data.digitsToDecimal || this.state.digitsToDecimal,
+      digitsToDecimal,
+      alignment: data.alignment || this.state.alignment
     },()=>{
       this.drawRuler();
     })
@@ -114,7 +116,10 @@ class SlideRuler extends React.Component {
     /* 1.定义变量 */
 
     // 1.1 定义原点，x轴方向起点与终点各留半屏空白
-    let origin = {x: this.state.containerWidth, y: this.state.canvasHeight * 2};
+    if (['top','bottom'].indexOf(this.state.alignment) === -1 ){
+      throw new Error('alignment must only be to "top" or "bottom"')
+    }
+    let origin = { x: this.state.containerWidth, y: ((this.state.alignment == 'top') ? 0 : this.state.canvasHeight * 2 )}
     // 1.2 定义刻度线样式
     let heightDecimal = this.state.heightDecimal * 2;
     let heightDigit = this.state.heightDigit * 2;
@@ -141,9 +146,11 @@ class SlideRuler extends React.Component {
     for (var i = minValue/precision; i <= maxValue/precision; i++) {
       context.beginPath();
       // 2.2 画刻度线
-      context.moveTo(origin.x + (i - minValue/precision) * spaceBetweenLines, 0);
+      context.moveTo(origin.x + (i - minValue/precision) * spaceBetweenLines, origin.y);
       // 画线到刻度高度，10的位数就加高
-      context.lineTo(origin.x + (i - minValue/precision) * spaceBetweenLines, i % digitsToDecimal == 0 ? heightDecimal : heightDigit);
+      let y = (i % digitsToDecimal == 0) ? Math.abs(origin.y - heightDecimal) : Math.abs(origin.y - heightDigit);
+      let x = origin.x + (i - minValue/precision) * spaceBetweenLines;
+      context.lineTo(x, y);
       // 设置属性
       context.lineWidth = this.state.lineWidth  * 2;
       // 10的位数就加深
@@ -157,30 +164,31 @@ class SlideRuler extends React.Component {
       if (i % digitsToDecimal == 0) {
         context.font = `${fontSize}px Arial`;
         const value = Math.round(i / digitsToDecimal) /// (derivative / digitsToDecimal)
-        context.fillText(format(textFormat, value), origin.x + (i - minValue/precision) * spaceBetweenLines, heightDecimal);
+        const textPosition = { 
+          x: origin.x + (i - minValue/precision) * spaceBetweenLines, 
+          y: (this.state.alignment == 'top' ? heightDecimal : this.state.canvasHeight - this.state.heightDecimal)  
+        }
+        const text = typeof(textFormat) === 'function' ? textFormat(value) : format(textFormat, value)
+        context.fillText(text, textPosition.x , textPosition.y);
       }
       context.closePath();
     }
   }
 
   handleScroll(e){
-    let scrollLeft = e.target.scrollLeft;
-    window.requestAnimationFrame(() => {
-      this.props.getCurrentValue && this.getCurrentValue(scrollLeft)}
-    );
+    this.getCurrentValueFromScroll(e.target.scrollLeft)
   }
 
   //通过滚动计算当前值
-  getCurrentValue(scrollLeft){
+  getCurrentValueFromScroll(scrollLeft){
     const { minValue, precision, digitsToDecimal, spaceBetweenLines } = this.state;
-    let scrollLeftValue = scrollLeft * precision / ( spaceBetweenLines * (digitsToDecimal / 10));
-    let currentValue = Math.round((scrollLeftValue + minValue)/precision) / (1/precision);
-
-    this.props.getCurrentValue(currentValue);
+    const unitNumber = scrollLeft / spaceBetweenLines;
+    const currentValue = unitNumber * precision
+    this.props.getCurrentValue && this.props.getCurrentValue(currentValue);
   }
 
   //通过当前值计算滚动距离
-  handleCurrentValue(){
+  setPositionStart(){
     this.refs.rulerBox.scrollLeft = 0;
   }
 
