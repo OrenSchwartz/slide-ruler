@@ -3,7 +3,8 @@
  */
 import React from 'react';
 import ReactDOM from 'react-dom';
-import s from './index.scss'
+import s from './index.scss';
+import format from 'string-format';
 
 class SlideRuler extends React.Component {
 
@@ -20,13 +21,22 @@ class SlideRuler extends React.Component {
       lineWidth: 2,
       colorDecimal: '#909090',
       colorDigit: '#b4b4b4',
-      divide: 10,
+      spaceBetweenLines: 10,
       precision: 1,
       fontSize: 20,
       fontColor: '#666666',
       maxValue: 230,
       minValue: 100,
-      currentValue: 0
+      currentValue: 0,
+      textFormat: '{0}',
+      showMarker: true,
+      markerBaseClassName: s.markerBase,
+      markerLineClassName: s.markerLine,
+      markerStyle: {},
+      markerBaseStyle: {},
+      markerLineStyle: {},
+      markerColor: '#59AFFF',
+      digitsToDecimal: 10,
     };
 
     this.initCanvas = this.initCanvas.bind(this);
@@ -62,32 +72,39 @@ class SlideRuler extends React.Component {
 
   initDates(data){
     let maxValue = data.maxValue || this.state.maxValue;
-    let minValue = data.minValue || this.state.minValue;
+    let minValue = data.minValue === undefined ?  this.state.minValue : data.minValue; // handle zero value bug
     let currentValue = data.currentValue || this.state.currentValue;
-    let divide = data.divide || this.state.divide;
+    let spaceBetweenLines = data.spaceBetweenLines || this.state.spaceBetweenLines;
     let precision = data.precision || this.state.precision;
     let containerWidth = data.containerWidth || ReactDOM.findDOMNode(this).offsetWidth;
-    let canvasWidth = (maxValue/precision * divide + containerWidth - minValue/precision * divide) || this.state.canvasWidth;
-    let scrollLeft = (currentValue - minValue) * divide || this.state.scrollLeft;
-
+    let canvasWidth = (maxValue/precision * spaceBetweenLines + containerWidth - minValue/precision * spaceBetweenLines) || this.state.canvasWidth;
+    let scrollLeft = (currentValue - minValue) * spaceBetweenLines || this.state.scrollLeft;
     this.setState({
-      containerWidth: containerWidth,
+      containerWidth,
       canvasHeight: data.canvasHeight || this.state.canvasHeight,
-      canvasWidth: canvasWidth,
-      scrollLeft: scrollLeft,
+      canvasWidth,
+      scrollLeft,
       heightDecimal: data.heightDecimal || this.state.heightDecimal,
       heightDigit: data.heightDigit || this.state.heightDigit,
       lineWidth: data.lineWidth || this.state.lineWidth,
       colorDecimal: data.colorDecimal || this.state.colorDecimal,
       colorDigit: data.colorDigit || this.state.colorDigit,
-      divide: data.divide || this.state.divide,
+      spaceBetweenLines: data.spaceBetweenLines || this.state.spaceBetweenLines,
       precision: data.precision || this.state.precision,
       fontSize: data.fontSize || this.state.fontSize,
       fontColor: data.fontSize || this.state.fontColor,
       maxValue: data.maxValue || this.state.maxValue,
-      minValue: data.minValue || this.state.minValue,
+      minValue: data.minValue === undefined ?  this.state.minValue : data.minValue, // handle zero value bug
       currentValue: data.currentValue || this.state.currentValue,
-      boxColor: data.boxColor || this.state.boxColor
+      boxColor: data.boxColor || this.state.boxColor,
+      textFormat: data.textFormat || this.state.textFormat,
+      showMarker: data.showMarker || this.state.showMarker,
+      markerBaseClassName: data.markerBaseClassName || this.state.markerBaseClassName,
+      markerLineClassName: data.markerLineClassName || this.state.markerLineClassName,
+      markerColor: data.markerColor || this.state.markerColor,
+      markerBaseStyle: {borderBottomColor: data.markerColor || this.state.markerColor, ...data.markerStyle, ...data.markerBaseStyle} || this.state.markerBaseStyle,
+      markerLineStyle: {backgroundColor: data.markerColor || this.state.markerColor, ...data.markerStyle, ...data.markerLineStyle} || this.state.markerLineStyle,
+      digitsToDecimal: data.digitsToDecimal || this.state.digitsToDecimal,
     },()=>{
       this.drawRuler();
     })
@@ -109,12 +126,12 @@ class SlideRuler extends React.Component {
     // 1.4 总刻度值
     let maxValue = this.state.maxValue,minValue = this.state.minValue;
     // 1.5 每个刻度所占位的px
-    let divide = this.state.divide * 2;
+    let spaceBetweenLines = this.state.spaceBetweenLines * 2;
     // 1.6定义每个刻度的精度
     let precision = this.state.precision;
-
-    let derivative = 1 / precision;
-
+    let textFormat = this.state.textFormat;
+    let digitsToDecimal = this.state.digitsToDecimal;
+    let derivative = 1 / precision;    
     /* 2.绘制 */
 
     // 2.1初始化context
@@ -124,22 +141,23 @@ class SlideRuler extends React.Component {
     for (var i = minValue/precision; i <= maxValue/precision; i++) {
       context.beginPath();
       // 2.2 画刻度线
-      context.moveTo(origin.x + (i - minValue/precision) * divide, 0);
+      context.moveTo(origin.x + (i - minValue/precision) * spaceBetweenLines, 0);
       // 画线到刻度高度，10的位数就加高
-      context.lineTo(origin.x + (i - minValue/precision) * divide, i* 2 % 20 == 0 ? heightDecimal : heightDigit);
+      context.lineTo(origin.x + (i - minValue/precision) * spaceBetweenLines, i % digitsToDecimal == 0 ? heightDecimal : heightDigit);
       // 设置属性
       context.lineWidth = this.state.lineWidth  * 2;
       // 10的位数就加深
-      context.strokeStyle = (i * 2 % 20 == 0) ? colorDecimal : colorDigit;
+      context.strokeStyle = (i % digitsToDecimal == 0) ? colorDecimal : colorDigit;
       // 描线
       context.stroke();
       // 2.3 描绘刻度值
       context.fillStyle = fontColor;
       context.textAlign = "center";
       context.textBaseline = "top";
-      if (i* 2 % 20 == 0) {
+      if (i % digitsToDecimal == 0) {
         context.font = `${fontSize}px Arial`;
-        context.fillText(Math.round(i / 10) / (derivative / 10), origin.x + (i - minValue/precision) * divide, heightDecimal);
+        const value = Math.round(i / digitsToDecimal) /// (derivative / digitsToDecimal)
+        context.fillText(format(textFormat, value), origin.x + (i - minValue/precision) * spaceBetweenLines, heightDecimal);
       }
       context.closePath();
     }
@@ -154,24 +172,37 @@ class SlideRuler extends React.Component {
 
   //通过滚动计算当前值
   getCurrentValue(scrollLeft){
-    let precision = this.state.precision;
-    let scrollLeftValue = scrollLeft * precision / this.state.divide;
-    let currentValue = Math.round((scrollLeftValue + this.state.minValue)/precision) / (1/precision);
+    const { minValue, precision, digitsToDecimal, spaceBetweenLines } = this.state;
+    let scrollLeftValue = scrollLeft * precision / ( spaceBetweenLines * (digitsToDecimal / 10));
+    let currentValue = Math.round((scrollLeftValue + minValue)/precision) / (1/precision);
 
     this.props.getCurrentValue(currentValue);
   }
 
   //通过当前值计算滚动距离
   handleCurrentValue(){
-    let scrollLeft = (this.state.currentValue - this.state.minValue) * this.state.divide / this.state.precision;
-    this.refs.rulerBox.scrollLeft = scrollLeft;
+    this.refs.rulerBox.scrollLeft = 0;
   }
 
   render() {
+    const { showMarker, markerBaseClassName, markerLineClassName, markerBaseStyle, markerLineStyle } = this.state;
     return (
       <div className={`${this.props.className} ${s.container}`}>
         <div className={s.rulerBox} style={{borderColor: this.state.boxColor}} onScroll={this.handleScroll} ref='rulerBox'>
-            <canvas ref='SlideRuler' style={{width:this.state.canvasWidth,height:this.state.canvasHeight}} width={this.state.canvasWidth * 2} height={this.state.canvasHeight * 2}></canvas>
+            <canvas 
+              ref='SlideRuler'
+              style={{width:this.state.canvasWidth,height:this.state.canvasHeight}} 
+              width={this.state.canvasWidth * 2} 
+              height={this.state.canvasHeight * 2}
+            />
+            {
+              showMarker 
+              ? <div>
+                  <div className={markerBaseClassName} style={markerBaseStyle}/>
+                  <div className={markerLineClassName} style={markerLineStyle}/>
+                </div> 
+              : null
+            }
         </div>
       </div>
     );

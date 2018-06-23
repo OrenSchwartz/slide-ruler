@@ -16,7 +16,7 @@ module.exports = {
         loader: 'babel-loader',
         exclude: /(node_modules|lib|coverage)/,
         query: {
-          presets: ['env']
+          presets: ['env', "stage-0", "react"]
         }
       }, {
         test: /\.scss$/,

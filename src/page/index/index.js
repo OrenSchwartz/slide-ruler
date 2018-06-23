@@ -17,15 +17,6 @@ class IndexPage extends React.Component {
     this.getCurrentValue = this.getCurrentValue.bind(this);
   }
 
-  componentDidMount(){
-
-  }
-
-
-  componentWillReceiveProps(nextProps){
-
-  }
-
   getCurrentValue(currentValue){
     this.setState({
       currentValue:currentValue
@@ -38,11 +29,18 @@ class IndexPage extends React.Component {
       <div className={s.container}>
         <p className={s.currentValue}>{this.state.currentValue}</p>
         <SlideRuler getCurrentValue={this.getCurrentValue}
-                    maxValue={200}
-                    className={s.slideContainer}
-                    minValue={20}
-                    boxColor='#ff0000'
-                    divide={5}
+                    maxValue={24}
+                    minValue={0}
+                    boxColor='black'
+                    spaceBetweenLines={20}
+                    digitsToDecimal={6}
+                    textFormat='{0}:00'
+                    markerColor='#edcd1f'
+                    markerStyle={{
+                      width: 3,
+                      borderRadius: 100,
+                    }}
+                    fontSize={18}
                     precision={0.1}/>
       </div>
     );
