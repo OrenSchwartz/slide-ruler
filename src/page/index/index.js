@@ -33,7 +33,7 @@ class IndexPage extends React.Component {
                     minValue={0}
                     boxColor='black'
                     spaceBetweenLines={20}
-                    digitsToDecimal={6}
+                    digitsToDecimal={30}
                     textFormat={(value) => {
                       let ampm = value / 12 < 1 ? 'AM' : 'PM';
                       let ampmValue = value % 12;
